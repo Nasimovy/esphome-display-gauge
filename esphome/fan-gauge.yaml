@@ -1,0 +1,119 @@
+
+spi:
+  clk_pin: GPIO18
+  mosi_pin: GPIO23
+  miso_pin: GPIO19
+
+i2c:
+  scan: true
+  sda: GPIO26
+  scl: GPIO27
+
+output:
+  - platform: ledc
+    pin: GPIO32
+    id: gpio_32_backlight_pwm
+
+
+light:
+  - platform: monochromatic
+    output: gpio_32_backlight_pwm
+    name: "Display Backlight"
+    id: back_light
+    restore_mode: ALWAYS_ON
+
+
+globals:
+   - id: progress
+     type: int
+     restore_value: no
+     initial_value: '1'
+   - id: frame
+     type: int 
+     restore_value: no
+     initial_value: '0'
+
+interval:
+  - interval: 400ms
+    then:
+      - lambda: |-
+          id(progress) = (id(progress) + 1);
+          if (id(progress) > 225) {
+            id(progress) = 1;
+          }
+      #id(frame) = (id(frame) + 1);
+      #if (id(frame) > 101) {
+      #  id(frame) = 1;
+      #}
+
+number:
+  - platform: template
+    name: "power"
+    id: power
+    optimistic: true
+    min_value: 0
+    max_value: 100
+    initial_value: 0
+    step: 1
+    mode: slider
+    on_value:
+      - globals.set:
+            id: frame
+            value: !lambda return x;
+
+font:
+
+  # gfonts://family[@weight]
+  - file: "gfonts://Roboto"
+    id: roboto20
+    size: 20
+  - file: "gfonts://Roboto"
+    id: roboto16
+    size: 16
+
+image:
+  - file: "animations/0to100.gif"
+    id: test
+
+animation:
+  - file: "animations/0to100.gif"
+    id: testgifTFT
+
+
+  - file: "animations/0to100.gif"
+    id: testgifOLED
+    resize: 115x64
+
+
+display:
+  - platform: ili9xxx
+    model: ili9341
+    dc_pin: GPIO16
+    reset_pin: GPIO5
+    cs_pin: GPIO14
+    data_rate: 40MHz
+    lambda: |-
+      it.print(0, 0, id(roboto20), Color(255,255,255), TextAlign::TOP_LEFT, "Hello World!");
+      it.rectangle(0, 40, 240, 60, Color(255,255,255));
+      it.filled_rectangle(5, 45, (id(frame)*2.30), 50);
+      it.filled_circle(20, 120, 10, Color(255,0,0));
+      it.filled_rectangle(20, 110, (id(frame)*2.00), 21, Color(255,0,0));
+      it.filled_circle(((id(frame)*2.00)+20), 120, 10, Color(255,0,0));
+      id(testgifTFT).set_frame(id(frame));
+      it.image(30, 180, id(testgifTFT), Color(255,0,255), COLOR_OFF);
+      it.printf(120, 260, id(roboto20), Color(255,255,255), TextAlign::CENTER, "%.1i", id(frame));
+
+
+  - platform: ssd1306_i2c
+    model: 'sh1106 128x64'
+    rotation: 0
+    flip_x: True
+    flip_y: true
+    offset_y: 0
+    offset_x: 0
+    external_vcc: true
+    update_interval: 0.5s
+    lambda: |-
+      id(testgifOLED).set_frame(id(frame));
+      it.image(6, 0, id(testgifOLED), COLOR_ON, COLOR_OFF);
+      it.printf(64, 55, id(roboto16), COLOR_ON, TextAlign::CENTER, "%.1i", id(frame));
